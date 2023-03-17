@@ -15,6 +15,9 @@ import Link from "next/link";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/services/api";
+import { useRouter } from "next/router";
 
 type CreateUserFormData = {
   name: string;
@@ -37,14 +40,35 @@ const CreateUserFormSchema = yup.object().shape({
 });
 
 function CreateUser() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const createUser = useMutation(
+    async (data: CreateUserFormData) => {
+      const response = await api.post("/users", {
+        user: {
+          ...data,
+          created_at: new Date(),
+        },
+      });
+
+      return response.data.user;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["users"] });
+      },
+    }
+  );
+
   const { register, handleSubmit, formState } = useForm<CreateUserFormData>({
     resolver: yupResolver(CreateUserFormSchema),
   });
 
   const handleCreateUser: SubmitHandler<CreateUserFormData> = async (data) => {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await createUser.mutateAsync(data);
 
-    console.log(data);
+    router.push("/users");
   };
 
   return (
@@ -108,7 +132,11 @@ function CreateUser() {
               <Link href="/users" passHref>
                 <Button colorScheme="whiteAlpha">Cancelar</Button>
               </Link>
-              <Button type="submit" colorScheme="pink" isLoading={formState.isSubmitting}>
+              <Button
+                type="submit"
+                colorScheme="pink"
+                isLoading={formState.isSubmitting}
+              >
                 Salvar
               </Button>
             </HStack>
